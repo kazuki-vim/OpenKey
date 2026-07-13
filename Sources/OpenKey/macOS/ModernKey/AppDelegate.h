@@ -15,6 +15,10 @@
 
 -(void)onImputMethodChanged:(BOOL)willNotify;
 -(void)onInputMethodSelected;
+-(void)onInputModeSelected:(id)sender;
+-(void)cycleInputMode;
+-(void)switchInputModeForHotkeyPress:(BOOL)isFirstPress;
+-(void)selectInputMode:(NSInteger)mode willNotify:(BOOL)willNotify;
 
 -(void)askPermission;
 

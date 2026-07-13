@@ -46,6 +46,8 @@ extern AppDelegate* appDelegate;
 extern int vSendKeyStepByStep;
 extern int vFixChromiumBrowser;
 extern int vPerformLayoutCompat;
+extern int vInputMode;
+extern int vUseRecentInputModeSwitch;
 
 extern "C" {
     //app which must sent special empty character
@@ -80,6 +82,7 @@ extern "C" {
     int _i, _j, _k;
     Uint32 _tempChar;
     bool _hasJustUsedHotKey = false;
+    bool _isSwitchKeySequenceActive = false;
 
     int _languageTemp = 0; //use for smart switch key
     vector<Byte> savedSmartSwitchKeyData; ////use for smart switch key
@@ -130,6 +133,13 @@ extern "C" {
         LOAD_DATA(vRememberCode, vRememberCode);
         LOAD_DATA(vOtherLanguage, vOtherLanguage);
         LOAD_DATA(vTempOffOpenKey, vTempOffOpenKey);
+        if ([[NSUserDefaults standardUserDefaults] objectForKey:@"UseRecentInputModeSwitch"] == nil) {
+            vUseRecentInputModeSwitch = 1;
+            [[NSUserDefaults standardUserDefaults] setInteger:vUseRecentInputModeSwitch
+                                                       forKey:@"UseRecentInputModeSwitch"];
+        } else {
+            LOAD_DATA(vUseRecentInputModeSwitch, UseRecentInputModeSwitch);
+        }
         
         LOAD_DATA(vFixChromiumBrowser, vFixChromiumBrowser);
         
@@ -226,6 +236,9 @@ extern "C" {
     }
     
     void OnActiveAppChanged() { //use for smart switch key; improved on Sep 28th, 2019
+        if (vInputMode == 2) { // Japanese is handled by the macOS input method.
+            return;
+        }
         queryFrontMostApp();
         _languageTemp = getAppInputMethodStatus(string(_frontMostApp.UTF8String), vLanguage | (vCodeTable << 1));
         if ((_languageTemp & 0x01) != vLanguage) { //for input method
@@ -256,7 +269,7 @@ extern "C" {
     }
     
     void OnInputMethodChanged() {
-        if (vUseSmartSwitchKey) {
+        if (vUseSmartSwitchKey && vInputMode != 2) {
             queryFrontMostApp();
             setAppInputMethodStatus(string(_frontMostApp.UTF8String), vLanguage | (vCodeTable << 1));
             saveSmartSwitchKeyData();
@@ -551,14 +564,24 @@ extern "C" {
         return true;
     }
     
-    void switchLanguage() {
-        if (vLanguage == 0)
-            vLanguage = 1;
-        else
-            vLanguage = 0;
+    CGEventFlags switchKeyModifierMask() {
+        CGEventFlags modifierMask = 0;
+        if (HAS_CONTROL(vSwitchKeyStatus)) modifierMask |= kCGEventFlagMaskControl;
+        if (HAS_OPTION(vSwitchKeyStatus)) modifierMask |= kCGEventFlagMaskAlternate;
+        if (HAS_COMMAND(vSwitchKeyStatus)) modifierMask |= kCGEventFlagMaskCommand;
+        if (HAS_SHIFT(vSwitchKeyStatus)) modifierMask |= kCGEventFlagMaskShift;
+        return modifierMask;
+    }
+
+    void switchLanguage(const bool& isFirstPressInSequence=false) {
+        if (vUseRecentInputModeSwitch) {
+            [appDelegate switchInputModeForHotkeyPress:isFirstPressInSequence];
+        } else {
+            _isSwitchKeySequenceActive = false;
+            [appDelegate cycleInputMode];
+        }
         if (HAS_BEEP(vSwitchKeyStatus))
             NSBeep();
-        [appDelegate onImputMethodChanged:YES];
         startNewSession();
     }
     
@@ -627,6 +650,11 @@ extern "C" {
         
         _flag = CGEventGetFlags(event);
         _keycode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+        CGEventFlags switchModifiers = switchKeyModifierMask();
+        if (type == kCGEventFlagsChanged && _isSwitchKeySequenceActive &&
+            switchModifiers != 0 && (_flag & switchModifiers) == 0) {
+            _isSwitchKeySequenceActive = false;
+        }
         
         if (type == kCGEventKeyDown && vPerformLayoutCompat) {
             // If conversion fail, use current keycode
@@ -639,7 +667,9 @@ extern "C" {
                 _lastFlag = 0;
             } else {
                 if (GET_SWITCH_KEY(vSwitchKeyStatus) == _keycode && checkHotKey(vSwitchKeyStatus, GET_SWITCH_KEY(vSwitchKeyStatus) != 0xFE)){
-                    switchLanguage();
+                    bool isFirstPressInSequence = switchModifiers != 0 && !_isSwitchKeySequenceActive;
+                    _isSwitchKeySequenceActive = switchModifiers != 0;
+                    switchLanguage(isFirstPressInSequence);
                     _lastFlag = 0;
                     _hasJustUsedHotKey = true;
                     return NULL;
@@ -658,8 +688,10 @@ extern "C" {
             } else if (_lastFlag > _flag)  {
                 //check switch
                 if (checkHotKey(vSwitchKeyStatus, GET_SWITCH_KEY(vSwitchKeyStatus) != 0xFE)) {
+                    bool isFirstPressInSequence = switchModifiers != 0 && !_isSwitchKeySequenceActive;
+                    _isSwitchKeySequenceActive = switchModifiers != 0;
                     _lastFlag = 0;
-                    switchLanguage();
+                    switchLanguage(isFirstPressInSequence);
                     _hasJustUsedHotKey = true;
                     return NULL;
                 }
@@ -691,7 +723,7 @@ extern "C" {
         
         //If is in english mode
         if (vLanguage == 0) {
-            if (vUseMacro && vUseMacroInEnglishMode && type == kCGEventKeyDown) {
+            if (vInputMode == 1 && vUseMacro && vUseMacroInEnglishMode && type == kCGEventKeyDown) {
                 vEnglishMode((type == kCGEventKeyDown ? vKeyEventState::KeyDown : vKeyEventState::MouseDown),
                              _keycode,
                              (_flag & kCGEventFlagMaskShift) || (_flag & kCGEventFlagMaskAlphaShift),

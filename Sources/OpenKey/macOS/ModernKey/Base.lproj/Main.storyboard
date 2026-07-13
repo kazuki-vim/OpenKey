@@ -1038,7 +1038,7 @@
                                     <color key="backgroundColor" name="textBackgroundColor" catalog="System" colorSpace="catalog"/>
                                 </textFieldCell>
                             </textField>
-                            <button toolTip="Chế độ gõ Tiếng Việt" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="qjz-9i-VOQ">
+                            <button toolTip="Chế độ gõ Tiếng Việt" tag="0" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="qjz-9i-VOQ">
                                 <rect key="frame" x="130" y="1050" width="84" height="18"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                 <buttonCell key="cell" type="radio" title="Tiếng Việt" bezelStyle="regularSquare" imagePosition="left" alignment="left" state="on" inset="2" id="qSg-7a-q1T">
@@ -1049,7 +1049,7 @@
                                     <action selector="onLanguageChanged:" target="XfG-lQ-9wD" id="lqn-Dr-h0M"/>
                                 </connections>
                             </button>
-                            <button toolTip="Chế độ gõ Tiếng Anh" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="yUA-UQ-mxx">
+                            <button toolTip="Chế độ gõ Tiếng Anh" tag="1" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="yUA-UQ-mxx">
                                 <rect key="frame" x="295" y="1050" width="66" height="18"/>
                                 <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
                                 <buttonCell key="cell" type="radio" title="English" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="Tt6-ic-NdA">
@@ -1058,6 +1058,17 @@
                                 </buttonCell>
                                 <connections>
                                     <action selector="onLanguageChanged:" target="XfG-lQ-9wD" id="5L9-e1-CX0"/>
+                                </connections>
+                            </button>
+                            <button toolTip="Chế độ gõ Tiếng Nhật" tag="2" verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="JaP-aNe-Se1">
+                                <rect key="frame" x="395" y="1050" width="78" height="18"/>
+                                <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                <buttonCell key="cell" type="radio" title="Japanese" bezelStyle="regularSquare" imagePosition="left" alignment="left" inset="2" id="JaP-aNe-Se2">
+                                    <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                    <font key="font" metaFont="system"/>
+                                </buttonCell>
+                                <connections>
+                                    <action selector="onLanguageChanged:" target="XfG-lQ-9wD" id="JaP-aNe-Se3"/>
                                 </connections>
                             </button>
                             <button verticalHuggingPriority="750" fixedFrame="YES" imageHugsTitle="YES" translatesAutoresizingMaskIntoConstraints="NO" id="o65-tK-iPq">
@@ -1284,6 +1295,17 @@
                                                     <action selector="onOtherLanguage:" target="XfG-lQ-9wD" id="ttX-Rc-ZfX"/>
                                                 </connections>
                                             </buttonCell>
+                                        </button>
+                                        <button toolTip="Lần bấm phím chuyển chế độ đầu tiên sẽ đổi giữa hai chế độ gần nhất; bấm tiếp khi vẫn giữ phím bổ trợ sẽ chuyển qua cả ba chế độ." verticalHuggingPriority="750" fixedFrame="YES" translatesAutoresizingMaskIntoConstraints="NO" id="ReC-eNt-Sw1">
+                                            <rect key="frame" x="350" y="23" width="155" height="18"/>
+                                            <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMinY="YES"/>
+                                            <buttonCell key="cell" type="check" title="Đổi nhanh 2 chế độ" bezelStyle="regularSquare" imagePosition="left" state="on" inset="2" id="ReC-eNt-Sw2">
+                                                <behavior key="behavior" changeContents="YES" doesNotDimImage="YES" lightByContents="YES"/>
+                                                <font key="font" metaFont="system"/>
+                                            </buttonCell>
+                                            <connections>
+                                                <action selector="onUseRecentInputModeSwitch:" target="XfG-lQ-9wD" id="ReC-eNt-Sw3"/>
+                                            </connections>
                                         </button>
                                     </subviews>
                                 </view>
@@ -1696,6 +1718,7 @@
                         <outlet property="FixChromiumBrowser" destination="efe-07-OlS" id="PMH-MH-7Ea"/>
                         <outlet property="FixRecommendBrowser" destination="BKq-hz-RRL" id="V6H-kl-20B"/>
                         <outlet property="FreeMarkButton" destination="f8B-EV-EE1" id="u6V-zD-Xqg"/>
+                        <outlet property="JapaneseButton" destination="JaP-aNe-Se1" id="JaP-aNe-Se4"/>
                         <outlet property="OtherLanguage" destination="uew-J8-1eo" id="LFp-j1-L5Z"/>
                         <outlet property="PerformLayoutCompat" destination="FLh-VP-qtU" id="PZj-VV-FRE"/>
                         <outlet property="QuickEndConsonant" destination="2k8-6T-Cyn" id="Yj2-m5-Nbj"/>
@@ -1714,6 +1737,7 @@
                         <outlet property="UseMacro" destination="eCY-Z0-cgW" id="0z8-vh-VlK"/>
                         <outlet property="UseMacroInEnglishMode" destination="0oj-fd-y0l" id="rD2-9a-ehn"/>
                         <outlet property="UseModernOrthography" destination="r8q-NU-lqe" id="lmX-Q6-FBh"/>
+                        <outlet property="UseRecentInputModeSwitch" destination="ReC-eNt-Sw1" id="ReC-eNt-Sw4"/>
                         <outlet property="VersionInfo" destination="bXh-ai-gk3" id="jxu-Bo-Ajq"/>
                         <outlet property="VietButton" destination="qjz-9i-VOQ" id="Jpa-0e-ZDo"/>
                         <outlet property="appOK" destination="S26-ZU-sFD" id="f3J-H0-epQ"/>

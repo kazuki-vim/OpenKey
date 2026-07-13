@@ -29,6 +29,7 @@
 
 @property (weak) IBOutlet NSButton *VietButton;
 @property (weak) IBOutlet NSButton *EngButton;
+@property (weak) IBOutlet NSButton *JapaneseButton;
 
 @property (weak) IBOutlet NSButton *FreeMarkButton;
 @property (weak) IBOutlet NSButton *UseModernOrthography;
@@ -59,6 +60,7 @@
 @property (weak) IBOutlet NSButtonCell *OtherLanguage;
 
 @property (weak) IBOutlet NSButton *TempOffOpenKey;
+@property (weak) IBOutlet NSButton *UseRecentInputModeSwitch;
 @property (weak) IBOutlet NSButton *AutoCapsMacro;
 @property (weak) IBOutlet NSButton *ShowIconOnDock;
 @property (weak) IBOutlet NSButton *CheckNewVersionOnStartup;

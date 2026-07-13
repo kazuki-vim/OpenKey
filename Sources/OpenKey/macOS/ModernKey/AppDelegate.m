@@ -26,6 +26,7 @@ extern void OnActiveAppChanged(void);
 
 //see document in Engine.h
 int vLanguage = 1;
+int vInputMode = 0;
 int vInputType = 0;
 int vFreeMark = 0;
 int vCodeTable = 0;
@@ -49,6 +50,7 @@ int vQuickEndConsonant = 0;
 int vRememberCode = 1; //new on version 2.0
 int vOtherLanguage = 1; //new on version 2.0
 int vTempOffOpenKey = 0; //new on version 2.0
+int vUseRecentInputModeSwitch = 1;
 
 int vShowIconOnDock = 0; //new on version 2.0
 
@@ -59,6 +61,52 @@ int vFixChromiumBrowser = 0; //new on version 2.0
 
 extern int convertToolHotKey;
 extern bool convertToolDontAlertWhenCompleted;
+
+typedef NS_ENUM(NSInteger, OpenKeyInputMode) {
+    OpenKeyInputModeVietnamese = 0,
+    OpenKeyInputModeEnglish = 1,
+    OpenKeyInputModeJapanese = 2,
+};
+
+static NSString * const OpenKeyInputModePreferenceKey = @"InputMode";
+static NSString * const OpenKeyPreviousInputModePreferenceKey = @"PreviousInputMode";
+
+static BOOL InputSourceUsesLanguage(TISInputSourceRef inputSource, CFStringRef languagePrefix) {
+    CFArrayRef languages = (CFArrayRef)TISGetInputSourceProperty(
+        inputSource, kTISPropertyInputSourceLanguages);
+    if (languages == NULL) {
+        return NO;
+    }
+
+    CFIndex languageCount = CFArrayGetCount(languages);
+    for (CFIndex index = 0; index < languageCount; index++) {
+        CFStringRef language = (CFStringRef)CFArrayGetValueAtIndex(languages, index);
+        if (language != NULL && CFStringHasPrefix(language, languagePrefix)) {
+            return YES;
+        }
+    }
+    return NO;
+}
+
+static BOOL SelectSystemInputSourceWithLanguage(CFStringRef languagePrefix) {
+    CFArrayRef inputSources = TISCreateInputSourceList(NULL, false);
+    if (inputSources == NULL) {
+        return NO;
+    }
+
+    BOOL selected = NO;
+    CFIndex sourceCount = CFArrayGetCount(inputSources);
+    for (CFIndex index = 0; index < sourceCount; index++) {
+        TISInputSourceRef inputSource = (TISInputSourceRef)CFArrayGetValueAtIndex(inputSources, index);
+        if (InputSourceUsesLanguage(inputSource, languagePrefix)) {
+            selected = TISSelectInputSource(inputSource) == noErr;
+            break;
+        }
+    }
+
+    CFRelease(inputSources);
+    return selected;
+}
 
 @interface AppDelegate ()
 
@@ -74,7 +122,9 @@ extern bool convertToolDontAlertWhenCompleted;
     NSStatusItem *statusItem;
     NSMenu *theMenu;
     
-    NSMenuItem* menuInputMethod;
+    NSMenuItem* menuVietnamese;
+    NSMenuItem* menuEnglish;
+    NSMenuItem* menuJapanese;
     
     NSMenuItem* mnuTelex;
     NSMenuItem* mnuVNI;
@@ -207,9 +257,18 @@ extern bool convertToolDontAlertWhenCompleted;
     theMenu = [[NSMenu alloc] initWithTitle:@""];
     [theMenu setAutoenablesItems:NO];
     
-    menuInputMethod = [theMenu addItemWithTitle:@"Bật Tiếng Việt"
-                                                     action:@selector(onInputMethodSelected)
-                                              keyEquivalent:@""];
+    menuVietnamese = [theMenu addItemWithTitle:@"Vietnamese"
+                                        action:@selector(onInputModeSelected:)
+                                 keyEquivalent:@""];
+    menuVietnamese.tag = OpenKeyInputModeVietnamese;
+    menuEnglish = [theMenu addItemWithTitle:@"English"
+                                     action:@selector(onInputModeSelected:)
+                              keyEquivalent:@""];
+    menuEnglish.tag = OpenKeyInputModeEnglish;
+    menuJapanese = [theMenu addItemWithTitle:@"Japanese"
+                                      action:@selector(onInputModeSelected:)
+                               keyEquivalent:@""];
+    menuJapanese.tag = OpenKeyInputModeJapanese;
     [theMenu addItem:[NSMenuItem separatorItem]];
     NSMenuItem* menuInputType = [theMenu addItemWithTitle:@"Kiểu gõ" action:nil keyEquivalent:@""];
     
@@ -287,6 +346,8 @@ extern bool convertToolDontAlertWhenCompleted;
 
 -(void)loadDefaultConfig {
     vLanguage = 1; [[NSUserDefaults standardUserDefaults] setInteger:vLanguage forKey:@"InputMethod"];
+    vInputMode = OpenKeyInputModeVietnamese;
+    [[NSUserDefaults standardUserDefaults] setInteger:vInputMode forKey:OpenKeyInputModePreferenceKey];
     vInputType = 0; [[NSUserDefaults standardUserDefaults] setInteger:vInputType forKey:@"InputType"];
     vFreeMark = 0; [[NSUserDefaults standardUserDefaults] setInteger:vFreeMark forKey:@"FreeMark"];
     vCheckSpelling = 1; [[NSUserDefaults standardUserDefaults] setInteger:vCheckSpelling forKey:@"Spelling"];
@@ -308,6 +369,7 @@ extern bool convertToolDontAlertWhenCompleted;
     vRememberCode = 1;[[NSUserDefaults standardUserDefaults] setInteger:vRememberCode forKey:@"vRememberCode"];
     vOtherLanguage = 1;[[NSUserDefaults standardUserDefaults] setInteger:vOtherLanguage forKey:@"vOtherLanguage"];
     vTempOffOpenKey = 0;[[NSUserDefaults standardUserDefaults] setInteger:vTempOffOpenKey forKey:@"vTempOffOpenKey"];
+    vUseRecentInputModeSwitch = 1;[[NSUserDefaults standardUserDefaults] setInteger:vUseRecentInputModeSwitch forKey:@"UseRecentInputModeSwitch"];
     vShowIconOnDock = 0;[[NSUserDefaults standardUserDefaults] setInteger:vShowIconOnDock forKey:@"vShowIconOnDock"];
     vFixChromiumBrowser = 0;[[NSUserDefaults standardUserDefaults] setInteger:vFixChromiumBrowser forKey:@"vFixChromiumBrowser"];
     vPerformLayoutCompat = 0;[[NSUserDefaults standardUserDefaults] setInteger:vPerformLayoutCompat forKey:@"vPerformLayoutCompat"];
@@ -361,22 +423,66 @@ extern bool convertToolDontAlertWhenCompleted;
     [theMenu setSubmenu:sub forItem:parent];
 }
 
+- (NSInteger)currentInputMode {
+    NSUserDefaults *defaults = [NSUserDefaults standardUserDefaults];
+    NSNumber *savedMode = [defaults objectForKey:OpenKeyInputModePreferenceKey];
+    if (savedMode == nil) {
+        NSInteger legacyInputMethod = [defaults integerForKey:@"InputMethod"];
+        NSInteger migratedMode = legacyInputMethod == 1 ? OpenKeyInputModeVietnamese : OpenKeyInputModeEnglish;
+        [defaults setInteger:migratedMode forKey:OpenKeyInputModePreferenceKey];
+        return migratedMode;
+    }
+
+    NSInteger inputMode = savedMode.integerValue;
+    if (inputMode < OpenKeyInputModeVietnamese || inputMode > OpenKeyInputModeJapanese) {
+        inputMode = OpenKeyInputModeEnglish;
+        [defaults setInteger:inputMode forKey:OpenKeyInputModePreferenceKey];
+    }
+    return inputMode;
+}
+
+- (BOOL)selectSystemInputSourceForMode:(NSInteger)inputMode {
+    return SelectSystemInputSourceWithLanguage(
+        inputMode == OpenKeyInputModeJapanese ? CFSTR("ja") : CFSTR("en"));
+}
+
+- (NSInteger)previousInputModeForCurrentMode:(NSInteger)inputMode {
+    NSInteger previousInputMode = [[NSUserDefaults standardUserDefaults] integerForKey:OpenKeyPreviousInputModePreferenceKey];
+    if (previousInputMode < OpenKeyInputModeVietnamese ||
+        previousInputMode > OpenKeyInputModeJapanese ||
+        previousInputMode == inputMode) {
+        return inputMode == OpenKeyInputModeVietnamese ?
+            OpenKeyInputModeEnglish : OpenKeyInputModeVietnamese;
+    }
+    return previousInputMode;
+}
+
 - (void) fillData {
     //fill data
-    NSInteger intInputMethod = [[NSUserDefaults standardUserDefaults] integerForKey:@"InputMethod"];
+    NSInteger inputMode = [self currentInputMode];
     NSInteger grayIcon = [[NSUserDefaults standardUserDefaults] integerForKey:@"GrayIcon"];
-    if (intInputMethod == 1) {
-        [menuInputMethod setState:NSControlStateValueOn];
+    [menuVietnamese setState:inputMode == OpenKeyInputModeVietnamese ? NSControlStateValueOn : NSControlStateValueOff];
+    [menuEnglish setState:inputMode == OpenKeyInputModeEnglish ? NSControlStateValueOn : NSControlStateValueOff];
+    [menuJapanese setState:inputMode == OpenKeyInputModeJapanese ? NSControlStateValueOn : NSControlStateValueOff];
+    if (inputMode == OpenKeyInputModeVietnamese) {
+        statusItem.button.title = @"";
         statusItem.button.image = [NSImage imageNamed:@"Status"];
         [statusItem.button.image setTemplate:(grayIcon ? YES : NO)];
         statusItem.button.alternateImage = [NSImage imageNamed:@"StatusHighlighted"];
+    } else if (inputMode == OpenKeyInputModeJapanese) {
+        statusItem.button.image = nil;
+        statusItem.button.alternateImage = nil;
+        statusItem.button.title = @"あ";
     } else {
-        [menuInputMethod setState:NSControlStateValueOff];
+        statusItem.button.title = @"";
         statusItem.button.image = [NSImage imageNamed:@"StatusEng"];
         [statusItem.button.image setTemplate:(grayIcon ? YES : NO)];
         statusItem.button.alternateImage = [NSImage imageNamed:@"StatusHighlightedEng"];
     }
-    vLanguage = (int)intInputMethod;
+    statusItem.button.toolTip = inputMode == OpenKeyInputModeVietnamese ? @"Vietnamese" :
+        (inputMode == OpenKeyInputModeJapanese ? @"Japanese" : @"English");
+    vInputMode = (int)inputMode;
+    vLanguage = inputMode == OpenKeyInputModeVietnamese ? 1 : 0;
     
     NSInteger intInputType = [[NSUserDefaults standardUserDefaults] integerForKey:@"InputType"];
     [mnuTelex setState:NSControlStateValueOff];
@@ -424,18 +530,44 @@ extern bool convertToolDontAlertWhenCompleted;
 
 }
 
--(void)onImputMethodChanged:(BOOL)willNotify {
-    NSInteger intInputMethod = [[NSUserDefaults standardUserDefaults] integerForKey:@"InputMethod"];
-    if (intInputMethod == 0)
-        intInputMethod = 1;
-    else
-        intInputMethod = 0;
-    vLanguage = (int)intInputMethod;
-    [[NSUserDefaults standardUserDefaults] setInteger:intInputMethod forKey:@"InputMethod"];
+- (void)onImputMethodChanged:(BOOL)willNotify {
+    NSInteger nextInputMode = ([self currentInputMode] + 1) % 3;
+    [self selectInputMode:nextInputMode willNotify:willNotify];
+}
 
+- (void)cycleInputMode {
+    [self onImputMethodChanged:YES];
+}
+
+- (void)switchInputModeForHotkeyPress:(BOOL)isFirstPress {
+    NSInteger inputMode = [self currentInputMode];
+    NSInteger nextInputMode = isFirstPress ?
+        [self previousInputModeForCurrentMode:inputMode] : (inputMode + 1) % 3;
+    [self selectInputMode:nextInputMode willNotify:YES];
+}
+
+- (void)selectInputMode:(NSInteger)inputMode willNotify:(BOOL)willNotify {
+    if (inputMode < OpenKeyInputModeVietnamese || inputMode > OpenKeyInputModeJapanese) {
+        return;
+    }
+    if (![self selectSystemInputSourceForMode:inputMode]) {
+        NSLog(@"OpenKey could not find an enabled %@ input source.",
+              inputMode == OpenKeyInputModeJapanese ? @"Japanese" : @"English");
+        return;
+    }
+
+    NSInteger previousInputMode = [self currentInputMode];
+    if (previousInputMode != inputMode) {
+        [[NSUserDefaults standardUserDefaults] setInteger:previousInputMode
+                                                   forKey:OpenKeyPreviousInputModePreferenceKey];
+    }
+    vInputMode = (int)inputMode;
+    vLanguage = inputMode == OpenKeyInputModeVietnamese ? 1 : 0;
+    [[NSUserDefaults standardUserDefaults] setInteger:inputMode forKey:OpenKeyInputModePreferenceKey];
+    [[NSUserDefaults standardUserDefaults] setInteger:vLanguage forKey:@"InputMethod"];
     [self fillData];
     [viewController fillData];
-    
+
     if (willNotify)
         OnInputMethodChanged();
 }
@@ -443,6 +575,10 @@ extern bool convertToolDontAlertWhenCompleted;
 #pragma mark -StatusBar menu action
 - (void)onInputMethodSelected {
     [self onImputMethodChanged:YES];
+}
+
+- (void)onInputModeSelected:(id)sender {
+    [self selectInputMode:[sender tag] willNotify:YES];
 }
 
 - (void)onInputTypeSelected:(id)sender {

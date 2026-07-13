@@ -34,6 +34,7 @@ extern int vQuickEndConsonant;
 extern int vRememberCode;
 extern int vOtherLanguage;
 extern int vTempOffOpenKey;
+extern int vUseRecentInputModeSwitch;
 extern int vShowIconOnDock;
 extern int vAutoCapsMacro;
 extern int vFixChromiumBrowser;
@@ -168,7 +169,7 @@ extern int vPerformLayoutCompat;
 }
 
 - (IBAction)onLanguageChanged:(id)sender {
-    [appDelegate onInputMethodSelected];
+    [appDelegate selectInputMode:[sender tag] willNotify:YES];
 }
 
 - (IBAction)onRestart:(id)sender {
@@ -341,6 +342,11 @@ extern int vPerformLayoutCompat;
     vTempOffOpenKey = (int)val;
 }
 
+- (IBAction)onUseRecentInputModeSwitch:(id)sender {
+    NSInteger val = [self setCustomValue:sender keyToSet:@"UseRecentInputModeSwitch"];
+    vUseRecentInputModeSwitch = (int)val;
+}
+
 - (IBAction)onRememberTableCode:(id)sender {
     NSInteger val = [self setCustomValue:sender keyToSet:@"vRememberCode"];
     vRememberCode = (int)val;
@@ -383,11 +389,16 @@ extern int vPerformLayoutCompat;
 -(void)fillData {
     NSInteger value;
     
-    NSInteger intInputMethod = [[NSUserDefaults standardUserDefaults] integerForKey:@"InputMethod"];
-    if (intInputMethod == 1) {
+    NSInteger inputMode = [[NSUserDefaults standardUserDefaults] integerForKey:@"InputMode"];
+    self.VietButton.state = NSControlStateValueOff;
+    self.EngButton.state = NSControlStateValueOff;
+    self.JapaneseButton.state = NSControlStateValueOff;
+    if (inputMode == 0) {
         self.VietButton.state = NSControlStateValueOn;
-    } else if (intInputMethod == 0) {
+    } else if (inputMode == 1) {
         self.EngButton.state = NSControlStateValueOn;
+    } else if (inputMode == 2) {
+        self.JapaneseButton.state = NSControlStateValueOn;
     }
     
     NSInteger intInputType = [[NSUserDefaults standardUserDefaults] integerForKey:@"InputType"];
@@ -462,6 +473,9 @@ extern int vPerformLayoutCompat;
     
     value = [[NSUserDefaults standardUserDefaults] integerForKey:@"vTempOffOpenKey"];
     self.TempOffOpenKey.state = value ? NSControlStateValueOn : NSControlStateValueOff;
+
+    value = [[NSUserDefaults standardUserDefaults] integerForKey:@"UseRecentInputModeSwitch"];
+    self.UseRecentInputModeSwitch.state = value ? NSControlStateValueOn : NSControlStateValueOff;
     
     value = [[NSUserDefaults standardUserDefaults] integerForKey:@"vAutoCapsMacro"];
     self.AutoCapsMacro.state = value ? NSControlStateValueOn : NSControlStateValueOff;
