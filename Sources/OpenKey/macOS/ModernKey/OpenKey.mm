@@ -85,6 +85,27 @@ extern "C" {
     vector<Byte> savedSmartSwitchKeyData; ////use for smart switch key
     
     NSString* _frontMostApp = @"UnknownApp";
+    bool _wasUsingEnglishSystemInputSource = true;
+
+    // OpenKey's Telex/VNI engine expects an English keyboard layout.  Let macOS
+    // input methods (for example Japanese Romaji/Kana) receive their own keys.
+    BOOL IsUsingEnglishSystemInputSource() {
+        TISInputSourceRef inputSource = TISCopyCurrentKeyboardInputSource();
+        if (inputSource == NULL) {
+            return YES;
+        }
+
+        CFArrayRef languages = (CFArrayRef)TISGetInputSourceProperty(
+            inputSource, kTISPropertyInputSourceLanguages);
+        BOOL isEnglish = NO;
+        if (languages != NULL && CFArrayGetCount(languages) > 0) {
+            CFStringRef language = (CFStringRef)CFArrayGetValueAtIndex(languages, 0);
+            isEnglish = language != NULL && CFStringHasPrefix(language, CFSTR("en"));
+        }
+
+        CFRelease(inputSource);
+        return isEnglish;
+    }
     
     void OpenKeyInit() {
         //load saved data
@@ -691,22 +712,19 @@ extern "C" {
         }
 
         //if "turn off Vietnamese when in other language" mode on
-        if(vOtherLanguage){
-            TISInputSourceRef isource = TISCopyCurrentKeyboardInputSource();
-            if ( isource != NULL )
-            {
-                CFArrayRef languages = (CFArrayRef) TISGetInputSourceProperty(isource, kTISPropertyInputSourceLanguages);
-                
-                if (CFArrayGetCount(languages) > 0) {
-                    CFStringRef langRef = (CFStringRef)CFArrayGetValueAtIndex(languages, 0);
-                    NSString *currentLanguage = (__bridge NSString *)langRef;
-                    if(![currentLanguage isLike:@"en"]){
-                        return event;
-                    }
-                    CFRelease(langRef);
-                    CFRelease(isource);
+        if (vOtherLanguage) {
+            bool isUsingEnglishSystemInputSource = IsUsingEnglishSystemInputSource();
+            if (!isUsingEnglishSystemInputSource) {
+                if (_wasUsingEnglishSystemInputSource) {
+                    startNewSession();
                 }
+                _wasUsingEnglishSystemInputSource = false;
+                return event;
             }
+            if (!_wasUsingEnglishSystemInputSource) {
+                startNewSession();
+            }
+            _wasUsingEnglishSystemInputSource = true;
         }
         
         //handle keyboard
