@@ -3,6 +3,27 @@
 ### [Download bản mới nhất](https://github.com/tuyenvm/OpenKey/releases)
 [![GitHub release](https://img.shields.io/github/v/release/tuyenvm/OpenKey.svg)](https://github.com/tuyenvm/OpenKey/releases/latest)
 
+### Bản fork này: thêm chế độ gõ Japanese (macOS)
+
+Bản fork mở rộng OpenKey với **3 chế độ gõ**: Tiếng Việt, English và Japanese — phù hợp khi bạn thường xuyên chuyển qua lại giữa tiếng Việt, tiếng Anh và tiếng Nhật.
+
+**Cách hoạt động**
+- **Tiếng Việt** — OpenKey gõ Telex/VNI như bình thường; macOS dùng bàn phím tiếng Anh (ABC/U.S.).
+- **English** — OpenKey tắt chuyển đổi tiếng Việt; macOS dùng bàn phím tiếng Anh.
+- **Japanese** — OpenKey tắt chuyển đổi tiếng Việt; macOS chuyển sang **bộ gõ tiếng Nhật có sẵn** (Romaji/Hiragana). OpenKey **không** có engine gõ tiếng Nhật riêng.
+
+Khi bạn chọn Japanese trong OpenKey, ứng dụng sẽ **tự chuyển bộ gõ hệ thống macOS** sang Japanese. Khi chọn Tiếng Việt hoặc English, nó chuyển lại bàn phím tiếng Anh.
+
+**Cài đặt trước khi dùng Japanese**
+1. Vào **System Settings → Keyboard → Input Sources** (hoặc *Cài đặt hệ thống → Bàn phím → Nguồn nhập*).
+2. Bấm **+** và thêm **Japanese** (ví dụ: Japanese – Romaji, Hiragana).
+3. Mở OpenKey, chọn chế độ **Japanese** từ menu thanh trạng thái hoặc Bảng điều khiển.
+
+**Gợi ý sử dụng**
+- Biểu tượng thanh menu: **V** (Tiếng Việt), **E** (English), **あ** (Japanese).
+- Phím tắt chuyển chế độ có thể xoay qua cả 3 chế độ (tùy cấu hình trong Bảng điều khiển).
+- Nên bật *Tắt tiếng Việt khi bộ gõ hệ thống khác tiếng Anh* — tránh OpenKey can thiệp khi macOS đang ở chế độ Japanese.
+
 ### Open source Vietnamese Input App for macOS - Bộ gõ tiếng Việt nguồn mở cho macOS.
 Bộ gõ tiếng Việt mới cho macOS, sử dụng kỹ thuật `Backspace`. Loại bỏ lỗi gạch chân khó chịu ở bộ gõ mặc định. Hoàn toàn miễn phí và là nguồn mở, luôn cập nhật và phát triển.
 
