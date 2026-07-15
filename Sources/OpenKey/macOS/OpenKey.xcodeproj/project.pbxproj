@@ -344,7 +344,7 @@
 			isa = PBXProject;
 			attributes = {
 				LastUpgradeCheck = 1010;
-				ORGANIZATIONNAME = "Tuyen Mai";
+				ORGANIZATIONNAME = Kazuki;
 				TargetAttributes = {
 					232EDA5321F1B33E0085D362 = {
 						CreatedOnToolsVersion = 10.1;

@@ -227,6 +227,30 @@ extern "C" {
     BOOL shouldUseSelectionReplacement(NSString* topApp) {
         return isSpotlightVisible() || [_recommendWorkaroundDisabledApp containsObject:topApp];
     }
+
+    // Smart-switch packed format (per-app):
+    // v2 layout (marked with 0x40): [codeTable:bits2+][inputMode:bits0-1]
+    // inputMode: 0 Vietnamese, 1 English, 2 Japanese
+    // codeTable: 0..4
+    //
+    // Legacy layout (no 0x40): bit0=vLanguage (0 English, 1 Vietnamese), codeTable<<1
+    // Japanese cannot be represented in legacy data.
+    static inline int packSmartSwitchValueV2(const int inputMode, const int codeTable) {
+        return 0x40 | (inputMode & 0x03) | ((codeTable & 0x07) << 2);
+    }
+
+    static inline void unpackSmartSwitchValue(const int packedValue, int& outInputMode, int& outCodeTable) {
+        if (packedValue & 0x40) {
+            int unmarked = packedValue & (~0x40);
+            outInputMode = unmarked & 0x03;
+            outCodeTable = (unmarked >> 2) & 0x07;
+        } else {
+            // Legacy: bit0 is vLanguage (0=English, 1=Vietnamese), code in bits1+
+            int legacyVLanguage = packedValue & 0x01;
+            outInputMode = (legacyVLanguage == 1 ? 0 : 1); // Vietnamese or English
+            outCodeTable = (packedValue >> 1) & 0x07;
+        }
+    }
     
     void saveSmartSwitchKeyData() {
         getSmartSwitchKeySaveData(savedSmartSwitchKeyData);
@@ -236,26 +260,25 @@ extern "C" {
     }
     
     void OnActiveAppChanged() { //use for smart switch key; improved on Sep 28th, 2019
-        if (vInputMode == 2) { // Japanese is handled by the macOS input method.
+        queryFrontMostApp();
+        _languageTemp = getAppInputMethodStatus(string(_frontMostApp.UTF8String),
+                                                 packSmartSwitchValueV2(vInputMode, vCodeTable));
+        if (_languageTemp == -1) {
+            saveSmartSwitchKeyData();
             return;
         }
-        queryFrontMostApp();
-        _languageTemp = getAppInputMethodStatus(string(_frontMostApp.UTF8String), vLanguage | (vCodeTable << 1));
-        if ((_languageTemp & 0x01) != vLanguage) { //for input method
-            if (_languageTemp != -1) {
-                vLanguage = _languageTemp;
-                [appDelegate onImputMethodChanged:NO];
-                startNewSession();
-            } else {
-                saveSmartSwitchKeyData();
-            }
+
+        int storedInputMode = vInputMode;
+        int storedCodeTable = vCodeTable;
+        unpackSmartSwitchValue(_languageTemp, storedInputMode, storedCodeTable);
+
+        if (storedInputMode != vInputMode) {
+            [appDelegate selectInputMode:storedInputMode willNotify:NO];
+            startNewSession();
         }
-        if (vRememberCode && (_languageTemp >> 1) != vCodeTable) { //for remember table code feature
-            if (_languageTemp != -1) {
-                [appDelegate onCodeTableChanged:(_languageTemp >> 1)];
-            } else {
-                saveSmartSwitchKeyData();
-            }
+
+        if (vRememberCode && storedCodeTable != vCodeTable) {
+            [appDelegate onCodeTableChanged:storedCodeTable];
         }
     }
     
@@ -263,15 +286,17 @@ extern "C" {
         onTableCodeChange();
         if (vRememberCode) {
             queryFrontMostApp();
-            setAppInputMethodStatus(string(_frontMostApp.UTF8String), vLanguage | (vCodeTable << 1));
+            setAppInputMethodStatus(string(_frontMostApp.UTF8String),
+                                      packSmartSwitchValueV2(vInputMode, vCodeTable));
             saveSmartSwitchKeyData();
         }
     }
     
     void OnInputMethodChanged() {
-        if (vUseSmartSwitchKey && vInputMode != 2) {
+        if (vUseSmartSwitchKey) {
             queryFrontMostApp();
-            setAppInputMethodStatus(string(_frontMostApp.UTF8String), vLanguage | (vCodeTable << 1));
+            setAppInputMethodStatus(string(_frontMostApp.UTF8String),
+                                      packSmartSwitchValueV2(vInputMode, vCodeTable));
             saveSmartSwitchKeyData();
         }
     }
